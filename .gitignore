@@ -1,0 +1,28 @@
+# Rust / Cargo
+src-tauri/target/
+
+# Node / npm
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+src-tauri/logs/
+
+# Runtime
+*.exe
+*.dll
+*.pdb
+
+# Claude project memory
+.claude/
