@@ -26,3 +26,11 @@ src-tauri/logs/
 
 # Claude project memory
 .claude/
+
+# Project documents (not source)
+AGENTS.md
+DesktopBoxLite项目需求文档.md
+docs/
+
+# Auto-generated Tauri schemas
+src-tauri/gen/schemas/
