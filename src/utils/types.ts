@@ -12,6 +12,7 @@ export interface Config {
   hotkeys: HotkeyConfig;
   appearance: AppearanceConfig;
   behavior: BehaviorConfig;
+  display: DisplayConfig;
 }
 
 export interface HotkeyConfig {
@@ -34,6 +35,10 @@ export interface BehaviorConfig {
   icon_refresh_interval_ms: number;
   window_width: number;
   window_height: number;
+}
+
+export interface DisplayConfig {
+  visible: boolean;
 }
 
 /** Window resize direction. */

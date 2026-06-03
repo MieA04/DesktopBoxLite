@@ -22,7 +22,6 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 20px;
 }
 
 /* ── Resizable Window ──────────────────────────────── */
@@ -32,43 +31,12 @@ body {
   position: relative;
   background-color: rgba(20, 20, 30, 0.7);
   backdrop-filter: blur(20px);
-  border-radius: 16px;
+  border-radius: 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-/* ── Show/Hide Animations ─────────────────────────── */
-@keyframes slide-up {
-  0% {
-    opacity: 0;
-    transform: translateY(60px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-down {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(60px);
-  }
-}
-
-.resizable-window.showing {
-  animation: slide-up 0.2s ease-out forwards;
-}
-
-.resizable-window.hiding {
-  animation: slide-down 0.2s ease-out forwards;
 }
 
 /* ── Search Bar ────────────────────────────────────── */
@@ -105,7 +73,6 @@ body {
   background-color: transparent;
   cursor: grab;
   flex-shrink: 0;
-  border-radius: 16px 16px 0 0;
 }
 
 .drag-handle:hover {

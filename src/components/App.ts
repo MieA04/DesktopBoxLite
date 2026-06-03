@@ -16,6 +16,10 @@ export class App {
   private allIcons: IconInfo[] = [];
   private config: Config | null = null;
   private windowElement: HTMLElement;
+  // Cached display geometry used by show/hide animations.
+  // Populated on first call, avoids repeated async lookups.
+  private cachedSw: number = 0;
+  private cachedSh: number = 0;
 
   constructor() {
     const appContainer = document.getElementById("app")!;
@@ -38,12 +42,9 @@ export class App {
       this.handleResize(width, height);
     });
 
-    // Start polling for icon changes (500ms interval)
-    // PollManager handles: fingerprint check → background extraction → render
     this.pollManager = new PollManager(
       500,
       (icons) => {
-        // On every successful icon refresh: update and re-render
         this.allIcons = icons;
         this.handleSearch(this.searchBar.getQuery());
       },
@@ -51,42 +52,108 @@ export class App {
     );
     this.pollManager.start();
 
-    // Load config, then apply settings that depend on it
     this.loadConfig().then(() => {
       this.applyWindowSize();
       this.applyCustomCss();
     });
 
-    // Listen for show/hide animation events from backend
     this.setupAnimationListeners();
+  }
+
+  /**
+   * Ensures the display geometry cache is populated.
+   * Reads the primary monitor size once and stores it.
+   */
+  private async ensureDisplayCache(): Promise<void> {
+    if (this.cachedSh > 0) return;
+    const monitor = await primaryMonitor();
+    if (monitor) {
+      this.cachedSw = monitor.size.width;
+      this.cachedSh = monitor.size.height;
+    }
+  }
+
+  /**
+   * Returns the target window width/height from config (if loaded)
+   * or falls back to the tauri.conf.json defaults.
+   */
+  private getWindowSize(): { width: number; height: number } {
+    if (this.config) {
+      return {
+        width: this.config.behavior.window_width,
+        height: this.config.behavior.window_height,
+      };
+    }
+    // Hardcoded defaults matching tauri.conf.json
+    return { width: 800, height: 600 };
   }
 
   /** Listens for Tauri events that trigger show/hide animations. */
   private setupAnimationListeners(): void {
-    // Hide: play slide-down animation, then tell backend to hide
+    // ── Hide ─────────────────────────────────────────────
+    // Smoothly resize the Tauri OS window from full height → minimum.
+    // Uses setInterval (not rAF) for reliable animation in all window states.
     listen("animate-hide", () => {
-      this.windowElement.classList.remove("showing");
-      this.windowElement.classList.add("hiding");
+      this.ensureDisplayCache().then(() => {
+        if (this.cachedSh <= 0) return;
+        const appWindow = getCurrentWindow();
+        const { width, height } = this.getWindowSize();
+        const sw = this.cachedSw;
+        const sh = this.cachedSh;
+        const x = Math.round((sw - width) / 2);
 
-      // After animation completes (0.2s), do the actual hide
-      setTimeout(() => {
-        invoke("finish_hide").catch((err) => {
-          console.error("finish_hide failed:", err);
-        });
-      }, 200);
+        const TOTAL_FRAMES = 6;
+        let frame = 0;
+        const timer = setInterval(() => {
+          frame++;
+          const progress = frame / TOTAL_FRAMES;
+          // ease-out cubic
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const h = Math.max(1, Math.round(height * (1 - eased)));
+          const y = Math.round(sh - h);
+
+          appWindow.setSize(new LogicalSize(width, h));
+          appWindow.setPosition(new LogicalPosition(x, y));
+
+          if (frame >= TOTAL_FRAMES) {
+            clearInterval(timer);
+            invoke("finish_hide").catch((err) =>
+              console.error("finish_hide failed:", err),
+            );
+          }
+        }, 16);
+      });
     });
 
-    // Show: backend already showed the window; play slide-up animation
+    // ── Show ─────────────────────────────────────────────
+    // The OS window was left at minimum size after hide.
+    // Show it and grow to full height with setInterval.
     listen("animate-show", () => {
-      this.windowElement.classList.remove("hiding");
-      // Force reflow so the browser picks up the removal before adding the new class
-      void this.windowElement.offsetWidth;
-      this.windowElement.classList.add("showing");
+      this.ensureDisplayCache().then(() => {
+        if (this.cachedSh <= 0) return;
+        const appWindow = getCurrentWindow();
+        const { width, height } = this.getWindowSize();
+        const sw = this.cachedSw;
+        const sh = this.cachedSh;
+        const x = Math.round((sw - width) / 2);
 
-      // Remove animation class after it completes
-      setTimeout(() => {
-        this.windowElement.classList.remove("showing");
-      }, 200);
+        const TOTAL_FRAMES = 6;
+        let frame = 0;
+        const timer = setInterval(() => {
+          frame++;
+          const progress = frame / TOTAL_FRAMES;
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const h = Math.round(height * eased);
+          const y = Math.round(sh - h);
+
+          appWindow.setSize(new LogicalSize(width, h));
+          appWindow.setPosition(new LogicalPosition(x, y));
+
+          if (frame >= TOTAL_FRAMES) {
+            clearInterval(timer);
+          }
+        }, 16);
+      });
     });
   }
 
@@ -115,7 +182,7 @@ export class App {
         const sw = monitor.size.width;
         const sh = monitor.size.height;
         const x = Math.round((sw - window_width) / 2);
-        const y = Math.round(sh - window_height - 20); // 20px bottom padding
+        const y = Math.round(sh - window_height);
         await appWindow.setPosition(new LogicalPosition(x, y));
       }
 

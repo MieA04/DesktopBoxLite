@@ -96,12 +96,26 @@ impl Default for BehaviorConfig {
     }
 }
 
+/// Display state configuration — records whether the window is visible.
+/// Updated on every show/hide toggle to persist across restarts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayConfig {
+    pub visible: bool,
+}
+
+impl Default for DisplayConfig {
+    fn default() -> Self {
+        Self { visible: true }
+    }
+}
+
 /// Root configuration structure matching config.json schema.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub hotkeys: HotkeyConfig,
     pub appearance: AppearanceConfig,
     pub behavior: BehaviorConfig,
+    pub display: DisplayConfig,
 }
 
 impl Default for Config {
@@ -110,6 +124,7 @@ impl Default for Config {
             hotkeys: HotkeyConfig::default(),
             appearance: AppearanceConfig::default(),
             behavior: BehaviorConfig::default(),
+            display: DisplayConfig::default(),
         }
     }
 }
@@ -221,5 +236,20 @@ pub fn save_window_size(width: u32, height: u32) -> Result<(), String> {
     let mut config = load_config();
     config.behavior.window_width = width;
     config.behavior.window_height = height;
+    save_config(&config)
+}
+
+/// Updates the display.visible state in both memory and disk.
+/// Called on every show/hide toggle to keep them consistent.
+pub fn save_display_visible(visible: bool) -> Result<(), String> {
+    let mut config = load_config();
+    config.display.visible = visible;
+    save_config(&config)
+}
+
+/// Updates the auto_start state in both memory and disk.
+pub fn save_auto_start(enabled: bool) -> Result<(), String> {
+    let mut config = load_config();
+    config.behavior.auto_start = enabled;
     save_config(&config)
 }

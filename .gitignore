@@ -5,6 +5,9 @@ src-tauri/target/
 node_modules/
 dist/
 
+# docs
+docs/
+
 # IDE
 .vscode/
 .idea/

@@ -80,7 +80,15 @@ fn execute_custom_command(command: String) -> Result<(), String> {
 
 #[tauri::command]
 fn set_auto_start(enabled: bool) -> Result<(), String> {
-    desktop::set_auto_start(enabled)
+    desktop::set_auto_start(enabled)?;
+    config::save_auto_start(enabled)
+}
+
+/// Persists the current window visibility state to config.
+/// Called on every show/hide toggle so the next launch restores the same state.
+#[tauri::command]
+fn set_display_visible(visible: bool) -> Result<(), String> {
+    config::save_display_visible(visible)
 }
 
 /// Increments the click count for a desktop icon and returns the new count.
@@ -131,6 +139,17 @@ pub fn run() {
                 }
             }
 
+            // Restore window visibility from saved config
+            if !config.display.visible {
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Err(e) = window.hide() {
+                        log::error!("Failed to hide window on startup: {}", e);
+                    } else {
+                        log::info!("Window started hidden (restoring saved state)");
+                    }
+                }
+            }
+
             // Register toggle window shortcut — filter to Pressed only
             let toggle_hotkey = config.hotkeys.toggle_window.clone();
 
@@ -145,6 +164,7 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window("main") {
                         if window.is_visible().unwrap_or(false) {
                             let _ = app.emit("animate-hide", ());
+                            let _ = config::save_display_visible(false);
                             log::info!("Hide animation triggered");
                         } else {
                             if let Err(e) = window.show() {
@@ -155,6 +175,7 @@ pub fn run() {
                                 log::error!("Failed to focus window: {}", e);
                             }
                             let _ = app.emit("animate-show", ());
+                            let _ = config::save_display_visible(true);
                             log::info!("Show animation triggered");
                         }
                     }
@@ -220,6 +241,7 @@ pub fn run() {
             set_auto_start,
             finish_hide,
             increment_click_count,
+            set_display_visible,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
